@@ -1,0 +1,24 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Python/build artifacts
+build/
+dist/
+*.egg-info/
+
+# LaTeX build artifacts
+*.aux
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+
+# Keep generated result CSVs/figures in the public archive, but ignore
+# temporary local generated datasets unless explicitly promoted.
+data/generated/*
+!data/generated/.gitkeep

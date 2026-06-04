@@ -1,0 +1,43 @@
+{
+  "run_name": "bandwidth_40p0",
+  "train_graphs": 45,
+  "test_graphs": 15,
+  "epochs": 60,
+  "patience": 15,
+  "hidden_dim": 24,
+  "learning_rate": 0.018,
+  "seed": 17,
+  "models": [
+    "flat_mlp",
+    "agg_gcn",
+    "ml_gcn",
+    "attn_ml_gcn"
+  ],
+  "baselines": [
+    "rsrp",
+    "sinr",
+    "load_aware",
+    "oracle"
+  ],
+  "sim": {
+    "num_bs": 7,
+    "num_ues": 50,
+    "area_radius_m": 650.0,
+    "carrier_hz": 3500000000.0,
+    "bandwidth_hz": 40000000.0,
+    "bs_tx_power_w": 20.0,
+    "noise_dbm": -94.0,
+    "path_loss_exp": 3.2,
+    "shadowing_db": 6.0,
+    "min_rsrp_dbm": -115.0,
+    "qos_mbps": 1.0,
+    "demand_low_mbps": 0.5,
+    "demand_high_mbps": 6.0,
+    "bs_fixed_power_w": 90.0,
+    "bs_dynamic_power_w": 55.0,
+    "bs_sleep_power_w": 8.0,
+    "load_limit": 1.0,
+    "temporal_periods": 24,
+    "seed": 17
+  }
+}

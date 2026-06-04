@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this code or generated results, please cite the associated paper/repository."
+title: "Multilayer Graph Learning for Energy-Efficient User Association and Cell Switch-Off in Dense Wireless Networks"
+authors:
+  - family-names: "Kazim"
+    given-names: "Muhammad"
+year: 2026
+repository-code: "https://github.com/kazim01011/multilayer-ua-energy"
+license: "MIT"

@@ -1,0 +1,10 @@
+T = readtable('data/main_comparison.csv');
+labels = categorical(T.policy);
+labels = reordercats(labels, T.policy);
+figure('Color','w','Position',[100 100 1200 700]);
+tiledlayout(2,2,'TileSpacing','compact');
+nexttile; bar(labels,T.energy_saving_vs_all_on); ylabel('Energy saving'); grid on;
+nexttile; bar(labels,T.energy_gap_vs_oracle); ylabel('Reference energy gap'); grid on;
+nexttile; bar(labels,T.active_bs); ylabel('Active BS count'); grid on;
+nexttile; bar(labels,T.served_ratio); ylabel('Served ratio'); ylim([0.94 1.01]); grid on;
+savefig('fig_results_main_comparison.fig');

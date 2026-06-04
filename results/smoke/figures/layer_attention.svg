@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="90" y="24" font-family="Arial" font-size="18" font-weight="bold">Learned layer attention</text>
+<line x1="90" y1="390" x2="890" y2="390" stroke="#333"/>
+<line x1="90" y1="40" x2="90" y2="390" stroke="#333"/>
+<rect x="90.0" y="40.0" width="191.0" height="350.0" fill="#4267b2"/>
+<text x="185.5" y="34.0" text-anchor="middle" font-family="Arial" font-size="12">0.266</text>
+<text x="185.5" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 185.5,408)">interference</text>
+<rect x="293.0" y="58.5" width="191.0" height="331.5" fill="#4267b2"/>
+<text x="388.5" y="52.5" text-anchor="middle" font-family="Arial" font-size="12">0.252</text>
+<text x="388.5" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 388.5,408)">association</text>
+<rect x="496.0" y="66.8" width="191.0" height="323.2" fill="#4267b2"/>
+<text x="591.5" y="60.8" text-anchor="middle" font-family="Arial" font-size="12">0.246</text>
+<text x="591.5" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 591.5,408)">temporal</text>
+<rect x="699.0" y="78.6" width="191.0" height="311.4" fill="#4267b2"/>
+<text x="794.5" y="72.6" text-anchor="middle" font-family="Arial" font-size="12">0.237</text>
+<text x="794.5" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 794.5,408)">load</text>
+</svg>

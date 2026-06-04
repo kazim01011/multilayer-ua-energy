@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="90" y="24" font-family="Arial" font-size="18" font-weight="bold">Oracle-assignment agreement</text>
+<line x1="90" y1="390" x2="890" y2="390" stroke="#333"/>
+<line x1="90" y1="40" x2="90" y2="390" stroke="#333"/>
+<rect x="90.0" y="40.0" width="89.5" height="350.0" fill="#4267b2"/>
+<text x="134.8" y="34.0" text-anchor="middle" font-family="Arial" font-size="12">1.000</text>
+<text x="134.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 134.8,408)">oracle</text>
+<rect x="191.5" y="278.3" width="89.5" height="111.7" fill="#4267b2"/>
+<text x="236.2" y="272.3" text-anchor="middle" font-family="Arial" font-size="12">0.319</text>
+<text x="236.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 236.2,408)">ml_gcn</text>
+<rect x="293.0" y="280.0" width="89.5" height="110.0" fill="#4267b2"/>
+<text x="337.8" y="274.0" text-anchor="middle" font-family="Arial" font-size="12">0.314</text>
+<text x="337.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 337.8,408)">rsrp</text>
+<rect x="394.5" y="280.0" width="89.5" height="110.0" fill="#4267b2"/>
+<text x="439.2" y="274.0" text-anchor="middle" font-family="Arial" font-size="12">0.314</text>
+<text x="439.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 439.2,408)">sinr</text>
+<rect x="496.0" y="281.7" width="89.5" height="108.3" fill="#4267b2"/>
+<text x="540.8" y="275.7" text-anchor="middle" font-family="Arial" font-size="12">0.310</text>
+<text x="540.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 540.8,408)">load_aware</text>
+<rect x="597.5" y="283.3" width="89.5" height="106.7" fill="#4267b2"/>
+<text x="642.2" y="277.3" text-anchor="middle" font-family="Arial" font-size="12">0.305</text>
+<text x="642.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 642.2,408)">agg_gcn</text>
+<rect x="699.0" y="285.0" width="89.5" height="105.0" fill="#4267b2"/>
+<text x="743.8" y="279.0" text-anchor="middle" font-family="Arial" font-size="12">0.300</text>
+<text x="743.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 743.8,408)">attn_ml_gcn</text>
+<rect x="800.5" y="286.7" width="89.5" height="103.3" fill="#4267b2"/>
+<text x="845.2" y="280.7" text-anchor="middle" font-family="Arial" font-size="12">0.295</text>
+<text x="845.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 845.2,408)">flat_mlp</text>
+</svg>

@@ -1,0 +1,1403 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{tikz}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+
+\title{Multilayer Graph Learning for Energy-Efficient User Association and Cell Switch-Off in Dense Wireless Networks}
+
+\author{Author Names Omitted for Draft}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Dense 5G and beyond-5G radio access networks require user association policies
+that reduce infrastructure energy consumption while preserving quality-of-
+service (QoS) and load feasibility. Conventional received-signal-strength,
+SINR, and load-aware association rules are computationally simple but do not
+explicitly optimize the active base-station (BS) set. Meanwhile, many
+graph-learning approaches represent the wireless system by a single aggregated
+graph, which can obscure heterogeneous relations that are relevant to
+energy-aware control. This paper proposes a multilayer graph-learning framework
+for joint user association and BS switch-off. Each wireless snapshot is modeled
+as a UE-level multilayer graph with separate relation layers for association
+competition, interference similarity, load-pressure similarity, and temporal
+traffic similarity. Fixed-fusion and attention-weighted multilayer graph
+convolutional networks (ML-GCNs) learn UE-to-BS association preferences, while
+an active-cell selector and a QoS/load repair procedure convert the learned
+preferences into feasible energy-aware decisions. The framework is analyzed in
+terms of permutation equivariance, aggregation-induced information loss, and
+feasibility-preserving repair. Simulation results show that the proposed
+ML-GCN achieves $55.2\%$ mean energy saving relative to an all-on network while
+maintaining a served ratio of 1.0 and using 3.18 active BSs on average. In
+contrast, RSRP, SINR, and load-aware baselines save only about $17$--$18\%$
+energy because they do not compact the active-cell set. Ablation and
+sensitivity studies show that preserving layer-specific wireless relations
+improves active-BS compactness and robustness across bandwidth, QoS, UE-density,
+and shadowing variations. Runtime results further indicate that ML-GCN provides
+a practical feed-forward approximation to finite active-cell search.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Graph neural networks, multilayer networks, user association, network energy
+savings, 6G, base-station switch-off.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{D}{ense} radio access networks are expected to support rapidly
+increasing traffic demand while reducing the energy footprint of wireless
+infrastructure. This tension is especially visible in ultra-dense 5G and
+beyond-5G deployments, where many base stations (BSs) are installed to improve
+coverage, capacity, and reliability, but only a subset of them may be necessary
+under a given traffic realization. Since a BS consumes non-negligible static
+power even when lightly loaded, energy-efficient network operation requires
+more than selecting the strongest serving cell for each user equipment (UE). It
+requires a joint decision: which BSs should remain active, which UEs should be
+associated with them, and how these decisions can preserve service constraints
+under interference, load, and traffic variability.
+
+User association has therefore become a central control problem in dense
+wireless networks. Classical association rules based on received signal
+strength, signal-to-interference-plus-noise ratio (SINR), or load balancing are
+computationally attractive, but they are fundamentally local. They typically
+assign each UE using the quality or load of a small number of candidate BSs and
+do not explicitly reason about the global energy consequence of activating or
+deactivating BSs. Optimization-based formulations can model the joint
+association and switch-off problem more directly, but the resulting mixed
+discrete-continuous decision space is difficult to solve repeatedly at network
+time scales. Learning-based methods are a natural alternative because they can
+amortize computation after training; however, the quality of a learned policy
+depends strongly on the graph representation through which the wireless system
+is presented to the model.
+
+Graph neural networks (GNNs) are attractive for wireless resource management
+because wireless networks are relational systems. A UE is not an isolated
+sample: its best association depends on neighboring UEs, competing BSs,
+interference coupling, traffic demand, and load created by other association
+decisions. Recent wireless GNN studies show that graph-based models can provide
+scalable approximations for resource-allocation tasks and can exploit
+permutation structure in wireless graphs \cite{eisen2020optimal,shen2021scalable}.
+Nevertheless, many graph-learning formulations reduce the system to a single
+relation graph. Such a collapse is convenient, but it can hide an important
+structural distinction: a dense wireless snapshot contains multiple kinds of
+relations whose semantics are not interchangeable. Two UEs may compete for the
+same serving BS, exhibit similar traffic demand, experience correlated
+interference conditions, or follow similar temporal traffic patterns. These
+relations may overlap, but they are not equivalent and should not necessarily
+be represented by a single averaged graph.
+
+This observation motivates a multilayer network formulation. In multilayer
+network models, a system is represented not only by nodes and edges, but also
+by layers that encode different interaction types, time slices, modalities, or
+couplings \cite{kivela2014multilayer,dedomenico2013mathematical,boccaletti2014structure}.
+This distinction is not only descriptive. Prior work on multilayer networks has
+shown that aggregation can remove structural information, distort centrality
+rankings, and obscure layer-specific organization
+\cite{dedomenico2015reducibility,dedomenico2015versatile}. For energy-aware
+wireless control, this issue is consequential. If association competition,
+interference, load pressure, and temporal traffic similarity are collapsed into
+one graph, a learning model may receive an averaged relation that no longer
+identifies which physical or operational mechanism caused a dependency between
+UEs. A policy trained on such an aggregate graph may therefore associate users
+correctly in easy cases but fail to learn why certain BSs can be switched off
+without violating quality-of-service (QoS) and load constraints.
+
+In this paper, we study energy-efficient user association and BS switch-off as
+a multilayer graph decision problem. For each wireless snapshot, we construct a
+UE-level multilayer graph
+\begin{equation}
+    \mathcal{G} = \left(\mathcal{V}, \mathbf{X},
+    \{\mathbf{A}^{(\ell)}\}_{\ell \in \mathcal{L}}\right),
+\end{equation}
+where $\mathcal{V}$ is the set of UEs, $\mathbf{X}$ contains UE radio and
+traffic features, and each layer $\mathbf{A}^{(\ell)}$ represents a distinct
+wireless relation. In the present study, the layer set $\mathcal{L}$ consists
+of association competition, interference similarity, load-pressure similarity,
+and temporal traffic similarity. A layer-aware GNN then learns separate graph
+filters over these relation layers before fusing the resulting embeddings for
+association and active-cell decisions. The final decision is evaluated by
+network energy, QoS satisfaction, BS activity, and load feasibility rather than
+by assignment accuracy alone.
+
+The central research question is:
+\begin{quote}
+\emph{Can preserving multilayer wireless structure improve energy-aware user
+association and BS switch-off decisions, compared with conventional association
+heuristics and single-layer graph-learning models, while maintaining QoS and
+load feasibility?}
+\end{quote}
+
+The proposed framework has two linked components. First, a multilayer GNN
+predicts UE-to-BS association preferences using layer-specific graph
+propagation. Second, an active-cell selector uses the learned association
+distribution and BS-level radio/load summaries to identify a compact active BS
+set. A QoS- and load-aware repair procedure then converts the learned
+preferences into a feasible association whenever possible, activating
+additional BSs only when the predicted active set cannot support the traffic
+realization. This design separates representation learning from constraint
+enforcement: the GNN learns multilayer structure, while the repair stage
+protects wireless feasibility.
+
+The paper makes the following contributions.
+\begin{enumerate}
+    \item We formulate joint user association and BS switch-off as a multilayer
+    network decision problem, with separate layers for association competition,
+    interference coupling, load pressure, and temporal traffic similarity.
+    The formulation preserves layer-specific wireless dependencies and admits
+    theoretical analysis of permutation equivariance, aggregation-induced
+    information loss, and feasibility-preserving decision repair.
+
+    \item We develop fixed-fusion and attention-weighted multilayer GNN models
+    for UE association preferences and combine them with an active-cell
+    selector for energy-aware BS switch-off. The resulting policy is evaluated
+    under explicit QoS, load, and energy constraints.
+
+    \item We define a comparative metric suite for constrained wireless
+    control, including energy saving relative to an all-on network, energy gap
+    relative to the oracle, served ratio, active BS count, maximum load, and
+    mean active load. Layer-ablation gains, attention entropy, and
+    layer-redundancy measures are included to assess the contribution and
+    distinctiveness of each relation layer.
+
+    \item We conduct a simulation-based comparative study against conventional
+    RSRP, SINR, and load-aware association heuristics, single-layer graph
+    learning, aggregated GCN learning, fixed multilayer GCN learning, and
+    attention-weighted multilayer GCN learning. The experiments are designed
+    to determine not only whether a policy saves energy, but whether it does
+    so while preserving service feasibility.
+\end{enumerate}
+
+The remainder of this paper is organized as follows. Section II reviews
+wireless user association, graph learning for resource management, and
+multilayer graph modeling. Section III presents the system model and
+energy-aware association objective. Section IV develops the proposed multilayer
+graph-learning framework and its mathematical properties. Section V describes
+the simulation design, baselines, and metrics. Section VI reports and discusses
+the comparative results. Section VII concludes the paper.
+
+\section{Related Work}
+Energy-aware user association has been widely studied as a mechanism for
+improving spectral efficiency, load distribution, and infrastructure energy
+consumption in dense wireless networks. Conventional association rules based on
+received signal strength, SINR, or load provide simple and scalable decisions,
+but they are usually myopic with respect to BS switch-off because the
+activation cost of each BS is not directly optimized. Optimization-based
+methods can incorporate energy and service constraints explicitly, but the
+joint association and activation problem is combinatorial and must be solved
+under changing channel and traffic conditions.
+
+GNNs provide a learning-based alternative for resource-management problems in
+which the wireless topology varies across network realizations. Random-edge
+GNNs have been used to approximate wireless resource allocation over changing
+interference graphs \cite{eisen2020optimal}, while scalable GNN architectures
+have been analyzed for radio resource management with permutation properties
+and size generalization \cite{shen2021scalable}. Graph attention has also been
+applied to wireless user association \cite{mirzaei2025gatua}. These studies
+support the use of graph learning for wireless control, but they typically
+represent the network through a single graph or a single dominant relation.
+
+Multilayer network models provide a formal way to represent systems with
+multiple edge semantics, time slices, or interaction channels
+\cite{kivela2014multilayer,dedomenico2013mathematical,boccaletti2014structure}.
+The importance of preserving layer structure is supported by work on structural
+reducibility and multilayer node ranking, where aggregation can remove relevant
+information or change structural rankings
+\cite{dedomenico2015reducibility,dedomenico2015versatile}. These results are
+relevant to dense wireless networks because association competition,
+interference, load, and temporal traffic similarity describe different
+dependencies among UEs.
+
+Several recent GNN studies have extended graph learning to multilayer or
+multi-view settings. The mGNN framework generalizes GNN operations to
+multilayer networks \cite{grassia2021mgnn}. Dynamic-multilayer GCNs have been
+used to combine intralayer and interlayer convolution for industrial monitoring
+\cite{zhang2023dynamic}, while attention-based dynamic multilayer GNNs have
+been developed for temporal multilayer prediction tasks
+\cite{zandi2025attention}. MVMA-GCN further uses multi-view attention and
+relationship dissimilarity to learn from multiple node-relation graphs
+\cite{zhang2023mvma}. These works demonstrate the value of layer-aware graph
+learning, but they do not address energy-constrained wireless association with
+active-cell control. The present work focuses on this setting by coupling a
+multilayer UE representation with BS switch-off, QoS/load repair, and
+energy-oriented evaluation.
+
+\section{System Model and Problem Formulation}
+\subsection{Network Snapshot}
+Consider a dense downlink cellular network with a set of BSs
+$\mathcal{B}=\{1,\ldots,B\}$ and a set of UEs
+$\mathcal{U}=\{1,\ldots,N\}$ observed at a traffic snapshot $t$. The position,
+traffic demand, and radio measurements of UE $i$ are represented by a feature
+vector $\mathbf{x}_i\in\mathbb{R}^{F}$, and the snapshot feature matrix is
+$\mathbf{X}=[\mathbf{x}_1,\ldots,\mathbf{x}_N]^{T}\in\mathbb{R}^{N\times F}$.
+Let $d_i(t)$ denote the traffic demand of UE $i$ in Mbps. The large-scale and
+small-scale channel gain from BS $b$ to UE $i$ is denoted by $g_{i,b}(t)$, and
+the BS transmit power is $P_{\mathrm{tx}}$.
+
+The user association and BS switch-off decision is described by two binary
+variables. Let
+\begin{equation}
+    z_{i,b} =
+    \begin{cases}
+        1, & \text{if UE } i \text{ is associated with BS } b,\\
+        0, & \text{otherwise,}
+    \end{cases}
+\end{equation}
+and let $a_b\in\{0,1\}$ indicate whether BS $b$ is active. Each UE is
+associated with exactly one BS:
+\begin{equation}
+    \sum_{b\in\mathcal{B}} z_{i,b}=1,\qquad \forall i\in\mathcal{U},
+    \label{eq:association_constraint}
+\end{equation}
+and a UE can be assigned only to an active BS:
+\begin{equation}
+    z_{i,b}\leq a_b,\qquad \forall i\in\mathcal{U},\ b\in\mathcal{B}.
+    \label{eq:active_constraint}
+\end{equation}
+
+\subsection{SINR, Rate, and Load}
+For a given active-BS vector $\mathbf{a}=[a_1,\ldots,a_B]^T$, the downlink
+SINR that UE $i$ would obtain from BS $b$ is
+\begin{equation}
+    \gamma_{i,b}(\mathbf{a}) =
+    \frac{a_b P_{\mathrm{tx}} g_{i,b}}
+    {\sigma^2 + \sum_{c\in\mathcal{B},\,c\neq b}
+    a_c P_{\mathrm{tx}} g_{i,c}},
+    \label{eq:sinr}
+\end{equation}
+where $\sigma^2$ is the receiver noise power. The corresponding achievable rate
+is modeled as
+\begin{equation}
+    R_{i,b}(\mathbf{a}) =
+    W\log_2\left(1+\gamma_{i,b}(\mathbf{a})\right),
+    \label{eq:rate}
+\end{equation}
+where $W$ is the system bandwidth. The RSRP feasibility condition is
+\begin{equation}
+    P_{\mathrm{tx}} g_{i,b}\geq \Gamma_{\mathrm{rsrp}},
+    \label{eq:rsrp}
+\end{equation}
+and the minimum-rate condition is
+\begin{equation}
+    R_{i,b}(\mathbf{a})\geq R_{\min}.
+    \label{eq:qos}
+\end{equation}
+
+The load contribution of UE $i$ to BS $b$ is the fraction of radio resources
+needed to support its demand:
+\begin{equation}
+    \ell_{i,b}(\mathbf{a}) =
+    \frac{d_i}{R_{i,b}(\mathbf{a})}.
+\end{equation}
+The total load of BS $b$ under association matrix $\mathbf{Z}$ is
+\begin{equation}
+    \rho_b(\mathbf{Z},\mathbf{a}) =
+    \sum_{i\in\mathcal{U}} z_{i,b}\ell_{i,b}(\mathbf{a}),
+    \label{eq:load}
+\end{equation}
+and the load constraint is
+\begin{equation}
+    \rho_b(\mathbf{Z},\mathbf{a})\leq \rho_{\max},
+    \qquad \forall b\in\mathcal{B}.
+    \label{eq:load_constraint}
+\end{equation}
+
+\subsection{Energy Model}
+The network energy model separates the static cost of keeping a BS active, the
+load-dependent cost of serving traffic, and the sleep-mode power of inactive
+BSs. The power consumed by BS $b$ is
+\begin{equation}
+    P_b(\mathbf{Z},\mathbf{a}) =
+    a_b\left(P_{\mathrm{fix}} + P_{\mathrm{dyn}}\rho_b\right)
+    +(1-a_b)P_{\mathrm{sleep}},
+    \label{eq:bs_power}
+\end{equation}
+where $P_{\mathrm{fix}}$ is the fixed active power, $P_{\mathrm{dyn}}$ is the
+dynamic load-dependent power coefficient, and $P_{\mathrm{sleep}}$ is the
+sleep-mode power. The total network power is
+\begin{equation}
+    P_{\mathrm{net}}(\mathbf{Z},\mathbf{a}) =
+    \sum_{b\in\mathcal{B}}P_b(\mathbf{Z},\mathbf{a}).
+    \label{eq:network_power}
+\end{equation}
+The all-on reference power is obtained by setting $a_b=1$ for all
+$b\in\mathcal{B}$. This reference is used to report energy saving:
+\begin{equation}
+    \mathrm{ES} =
+    \frac{P_{\mathrm{all}}-P_{\mathrm{net}}}{P_{\mathrm{all}}}.
+    \label{eq:energy_saving}
+\end{equation}
+
+\subsection{Optimization Problem}
+The ideal energy-aware association problem is to minimize network power while
+satisfying association, activation, QoS, and load constraints:
+\begin{align}
+    \min_{\mathbf{Z},\mathbf{a}} \quad
+    & P_{\mathrm{net}}(\mathbf{Z},\mathbf{a}) \label{eq:objective}\\
+    \text{s.t.}\quad
+    & \sum_{b\in\mathcal{B}} z_{i,b}=1,
+    && \forall i\in\mathcal{U}, \nonumber\\
+    & z_{i,b}\leq a_b,
+    && \forall i\in\mathcal{U},\ b\in\mathcal{B}, \nonumber\\
+    & z_{i,b}P_{\mathrm{tx}}g_{i,b}\geq z_{i,b}\Gamma_{\mathrm{rsrp}},
+    && \forall i\in\mathcal{U},\ b\in\mathcal{B}, \nonumber\\
+    & z_{i,b}R_{i,b}(\mathbf{a})\geq z_{i,b}R_{\min},
+    && \forall i\in\mathcal{U},\ b\in\mathcal{B}, \nonumber\\
+    & \rho_b(\mathbf{Z},\mathbf{a})\leq \rho_{\max},
+    && \forall b\in\mathcal{B}, \nonumber\\
+    & z_{i,b}\in\{0,1\},\ a_b\in\{0,1\}.
+    && \nonumber
+\end{align}
+This problem is combinatorial because the association matrix and active-BS
+vector are discrete and coupled through SINR, rate, load, and power. The goal
+of the proposed learning framework is therefore not to solve
+\eqref{eq:objective} exactly at every snapshot, but to learn a scalable policy
+that approximates low-energy feasible decisions from the multilayer wireless
+graph representation.
+
+\section{Proposed Multilayer Graph Learning Framework}
+\subsection{Overview}
+The proposed framework converts each wireless snapshot into a multilayer UE
+graph, learns UE-to-BS association preferences using layer-specific graph
+filters, predicts a compact active-BS set, and applies a QoS/load repair step
+before evaluation. Fig.~\ref{fig:framework_pipeline} gives the computational
+pipeline, while Fig.~\ref{fig:model_architecture} gives the detailed
+multilayer model architecture. The key modeling choice is that different
+wireless relations are not merged before graph propagation. Instead, each
+relation layer is processed by a dedicated graph filter and fused only after
+layer-wise representation learning.
+
+\begin{figure*}[!t]
+    \centering
+    \scriptsize
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        font=\scriptsize,
+        node distance=0.42cm and 0.62cm,
+        block/.style={draw, rounded corners=2pt, align=center,
+            minimum height=0.82cm, minimum width=2.25cm, fill=gray!8},
+        layer/.style={draw, align=center, minimum height=0.48cm,
+            minimum width=2.00cm, fill=gray!4},
+        op/.style={draw, rounded corners=2pt, align=center,
+            minimum height=0.70cm, minimum width=2.10cm, fill=gray!15},
+        arrow/.style={-{Latex[length=2mm]}, thick},
+        dashedbox/.style={draw, dashed, rounded corners=3pt, inner sep=4pt}
+    ]
+    \node[block] (snapshot) {Wireless snapshot\\
+    $\{\mathbf{X},\mathbf{G},\mathbf{d},t\}$};
+    \node[block, right=of snapshot] (layers) {Multilayer graph\\construction};
+    \node[layer, above right=-0.05cm and 0.40cm of layers] (a1)
+    {$\mathbf{S}^{(a)}$\\association};
+    \node[layer, below=0.06cm of a1] (a2)
+    {$\mathbf{S}^{(i)}$\\interference};
+    \node[layer, below=0.06cm of a2] (a3)
+    {$\mathbf{S}^{(l)}$\\load};
+    \node[layer, below=0.06cm of a3] (a4)
+    {$\mathbf{S}^{(t)}$\\temporal};
+    \node[op, right=1.00cm of a2] (gcn) {Layer-specific\\GCN filters\\
+    $\phi(\mathbf{S}^{(\ell)}\mathbf{X}\mathbf{W}^{(\ell)})$};
+    \node[op, right=of gcn] (fusion) {Fixed or attention\\fusion\\
+    $\mathbf{E}$};
+    \node[op, right=of fusion] (prob) {UE-BS probabilities\\
+    $\mathbf{P}=\mathrm{softmax}(\cdot)$};
+    \node[op, right=of prob] (selector) {Active-BS selector\\
+    $\hat{\mathcal{B}}_{\mathrm{on}}$};
+    \node[op, right=of selector] (repair) {QoS/load repair\\
+    $\hat{\mathbf{Z}},\hat{\mathbf{a}}$};
+    \node[block, right=of repair] (metrics) {Energy and feasibility\\
+    metrics};
+
+    \draw[arrow] (snapshot) -- (layers);
+    \draw[arrow] (layers) -- (a1.west);
+    \draw[arrow] (layers) -- (a2.west);
+    \draw[arrow] (layers) -- (a3.west);
+    \draw[arrow] (layers) -- (a4.west);
+    \draw[arrow] (a1.east) -- (gcn.west);
+    \draw[arrow] (a2.east) -- (gcn.west);
+    \draw[arrow] (a3.east) -- (gcn.west);
+    \draw[arrow] (a4.east) -- (gcn.west);
+    \draw[arrow] (gcn) -- (fusion);
+    \draw[arrow] (fusion) -- (prob);
+    \draw[arrow] (prob) -- (selector);
+    \draw[arrow] (selector) -- (repair);
+    \draw[arrow] (repair) -- (metrics);
+
+    \node[dashedbox, fit=(a1)(a2)(a3)(a4), label=below:{separate wireless relations}] {};
+    \node[block, below=0.84cm of prob, minimum width=2.55cm] (train)
+    {Training targets\\oracle association and\\active-BS labels};
+    \draw[arrow, dashed] (train) -- (prob);
+    \draw[arrow, dashed] (train) -- (selector);
+    \end{tikzpicture}
+    }
+    \caption{Computational pipeline of the proposed framework. Wireless
+    snapshots are converted into separate relation layers, processed by
+    layer-specific GCN filters, fused into UE embeddings, and passed to
+    association, active-BS selection, repair, and evaluation modules.}
+    \label{fig:framework_pipeline}
+\end{figure*}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/fig_multilayer_ua_model.png}
+    \caption{Proposed multilayer graph-learning framework for energy-aware
+    user association and BS switch-off. Separate wireless relation layers are
+    preserved during graph propagation and fused before association, active-BS
+    selection, and QoS/load repair.}
+    \label{fig:model_architecture}
+\end{figure*}
+
+\subsection{Multilayer Wireless Graph Construction}
+For each snapshot, let $\mathbf{G}\in\mathbb{R}^{N\times B}$ denote the
+channel-gain matrix with entries $g_{i,b}$, and let $\mathbf{r}_i$ be the
+position of UE $i$. The proposed model builds a multilayer graph
+\begin{equation}
+    \mathcal{M} = \left(\mathcal{U},\mathbf{X},
+    \{\mathbf{S}^{(\ell)}\}_{\ell\in\mathcal{L}}\right),
+    \qquad
+    \mathcal{L}=\{a,i,l,t\},
+\end{equation}
+where $a$, $i$, $l$, and $t$ denote association, interference, load, and
+temporal layers, respectively. Each layer is constructed as a nonnegative
+adjacency matrix $\mathbf{A}^{(\ell)}$ and converted into a row-stochastic
+support matrix
+\begin{equation}
+    \mathbf{S}^{(\ell)}
+    =\left(\mathbf{D}^{(\ell)}\right)^{-1}
+    \left(\mathbf{A}^{(\ell)}+\mathbf{I}\right),
+    \label{eq:support}
+\end{equation}
+where $\mathbf{D}^{(\ell)}$ is the diagonal row-sum matrix of
+$\mathbf{A}^{(\ell)}+\mathbf{I}$. The identity term preserves each UE's own
+features during propagation.
+
+The association layer connects UEs that compete for the same strongest BS. Let
+\begin{equation}
+    b_i^{\star}=\arg\max_{b\in\mathcal{B}} g_{i,b}.
+\end{equation}
+Then
+\begin{equation}
+    A_{j,k}^{(a)} =
+    \mathbf{1}\{b_j^{\star}=b_k^{\star}\},
+    \qquad j\neq k.
+\end{equation}
+The interference layer compares normalized channel-gain profiles. Define
+$\mathbf{q}_j=\mathbf{g}_j/\|\mathbf{g}_j\|_1$, where $\mathbf{g}_j$ is the
+$j$th row of $\mathbf{G}$. The interference similarity is
+\begin{equation}
+    A_{j,k}^{(i)} = \mathbf{q}_j^T\mathbf{q}_k,\qquad j\neq k.
+\end{equation}
+The load layer links UEs with similar traffic demand within the same
+association region:
+\begin{equation}
+    A_{j,k}^{(l)} =
+    A_{j,k}^{(a)}
+    \exp\left(-\eta_l\frac{|d_j-d_k|}{d_{\max}}\right),
+\end{equation}
+where $\eta_l>0$ controls demand-similarity sharpness and $d_{\max}$ is the
+maximum demand scale. Finally, the temporal layer captures spatial-demand
+similarity modulated by the traffic period:
+\begin{equation}
+    A_{j,k}^{(t)} =
+    h(t)\exp\left(-\eta_r\frac{\|\mathbf{r}_j-\mathbf{r}_k\|_2}{R}\right)
+    \exp\left(-\eta_d\frac{|d_j-d_k|}{d_{\max}}\right),
+\end{equation}
+where $R$ is the cell-area radius and $h(t)$ is a bounded periodic traffic
+factor. Sparse top-$K$ thresholding is applied to the similarity layers to
+avoid dense message passing and to emphasize dominant local dependencies.
+
+\subsection{Layer-Aware Association Learning}
+Given $\mathbf{X}$ and the supports $\{\mathbf{S}^{(\ell)}\}$, the fixed-fusion
+multilayer GCN computes one hidden representation per layer:
+\begin{equation}
+    \mathbf{H}^{(\ell)}
+    =\phi\left(\mathbf{S}^{(\ell)}\mathbf{X}\mathbf{W}^{(\ell)}\right),
+    \qquad \ell\in\mathcal{L},
+    \label{eq:layer_gcn}
+\end{equation}
+where $\phi(\cdot)$ is a pointwise nonlinearity and
+$\mathbf{W}^{(\ell)}$ is a layer-specific trainable matrix. The layer-wise
+embeddings are fused as
+\begin{equation}
+    \mathbf{E} =
+    \left[\mathbf{H}^{(a)}\Vert\mathbf{H}^{(i)}
+    \Vert\mathbf{H}^{(l)}\Vert\mathbf{H}^{(t)}\right],
+    \label{eq:fixed_fusion}
+\end{equation}
+where $\Vert$ denotes feature concatenation. The UE-to-BS association
+probability matrix is
+\begin{equation}
+    \mathbf{P} =
+    \mathrm{softmax}\left(\mathbf{E}\mathbf{W}_o+\mathbf{b}_o\right),
+    \label{eq:association_prob}
+\end{equation}
+where $P_{i,b}$ is the learned probability that UE $i$ should be associated
+with BS $b$.
+
+The attention-weighted model assigns a trainable nonnegative importance weight
+to each layer. Let $\eta_{\ell}$ be the attention logit of layer $\ell$. The
+normalized layer weight is
+\begin{equation}
+    \alpha_{\ell} =
+    \frac{\exp(\eta_{\ell})}
+    {\sum_{r\in\mathcal{L}}\exp(\eta_r)}.
+    \label{eq:attention_weight}
+\end{equation}
+The fused embedding becomes
+\begin{equation}
+    \mathbf{E}_{\mathrm{att}} =
+    \left[|\mathcal{L}|\alpha_a\mathbf{H}^{(a)}
+    \Vert |\mathcal{L}|\alpha_i\mathbf{H}^{(i)}
+    \Vert |\mathcal{L}|\alpha_l\mathbf{H}^{(l)}
+    \Vert |\mathcal{L}|\alpha_t\mathbf{H}^{(t)}\right].
+    \label{eq:att_fusion}
+\end{equation}
+The factor $|\mathcal{L}|$ keeps the scale comparable to fixed fusion when the
+attention distribution is uniform.
+
+The association predictor is trained by supervised imitation of low-energy
+reference decisions:
+\begin{equation}
+    \mathcal{L}_{\mathrm{ua}} =
+    -\frac{1}{N}\sum_{i\in\mathcal{U}}
+    \sum_{b\in\mathcal{B}} y_{i,b}\log P_{i,b},
+    \label{eq:ua_loss}
+\end{equation}
+where $y_{i,b}$ is the reference association label. This loss trains the GNN to
+learn association preferences; feasibility and switch-off behavior are handled
+by the active-cell and repair stages below.
+
+\subsection{Active-BS Selection and QoS/Load Repair}
+Association probabilities alone do not determine which BSs should remain
+active, because a model may assign every UE while still keeping unnecessary BSs
+on. Therefore, the proposed framework uses a second-stage active-BS selector.
+For each BS $b$, a summary vector $\boldsymbol{\psi}_b$ is formed from
+probability statistics, demand-weighted probability mass, approximate load,
+channel quality, and distance statistics. The active score is
+\begin{equation}
+    s_b = \sigma\left(\boldsymbol{\theta}^{T}
+    \bar{\boldsymbol{\psi}}_b + c\right),
+    \label{eq:active_score}
+\end{equation}
+where $\bar{\boldsymbol{\psi}}_b$ is the standardized BS summary vector and
+$\sigma(\cdot)$ is the logistic sigmoid. The selected active set is the set of
+top-scoring BSs,
+\begin{equation}
+    \widehat{\mathcal{B}}_{\mathrm{on}}
+    = \operatorname{TopK}_{b\in\mathcal{B}}(s_b).
+    \label{eq:topk}
+\end{equation}
+The value of $K$ is estimated from the average active-BS count of the reference
+solutions in the training set.
+
+The initial UE assignment chooses, for each UE, the most likely BS among
+$\widehat{\mathcal{B}}_{\mathrm{on}}$. A repair routine then checks the RSRP,
+rate, and load constraints in \eqref{eq:rsrp}--\eqref{eq:load_constraint}. If
+the selected active set cannot support the snapshot, additional BSs are
+activated according to their aggregate gain-demand score over stressed UEs.
+Algorithm~\ref{alg:method} gives the complete inference procedure.
+
+\begin{algorithm}[!t]
+\caption{Multilayer GNN Association With Active-BS Repair}
+\label{alg:method}
+\begin{algorithmic}[1]
+\Require $(\mathbf{X},\mathbf{G},\mathbf{d},t)$, parameters
+$\Theta=\{\mathbf{W}^{(\ell)},\mathbf{W}_o,\mathbf{b}_o,\eta_{\ell}\}$,
+selector $(\boldsymbol{\theta},c)$, $K$
+\Ensure $\widehat{\mathbf{Z}}$, $\widehat{\mathbf{a}}$
+\State $\mathcal{L}\gets\{a,i,l,t\}$
+\State $\mathbf{S}^{(\ell)}\gets\operatorname{LayerSupport}_{\ell}
+(\mathbf{X},\mathbf{G},\mathbf{d},t)$, $\ell\in\mathcal{L}$
+\For{$\ell\in\mathcal{L}$}
+    \State $\mathbf{H}^{(\ell)}
+    \gets \phi(\mathbf{S}^{(\ell)}\mathbf{X}\mathbf{W}^{(\ell)})$
+\EndFor
+\State $\alpha_{\ell}\gets
+\exp(\eta_{\ell})/\sum_{r\in\mathcal{L}}\exp(\eta_r)$
+\State $\mathbf{E}\gets
+\Vert_{\ell\in\mathcal{L}}\left(|\mathcal{L}|\alpha_{\ell}
+\mathbf{H}^{(\ell)}\right)$
+\State $\mathbf{P}\gets\operatorname{softmax}(\mathbf{E}\mathbf{W}_o+\mathbf{b}_o)$
+\For{$b\in\mathcal{B}$}
+    \State $\boldsymbol{\psi}_b\gets\operatorname{BSFeatures}(b,\mathbf{P},
+    \mathbf{G},\mathbf{d})$
+    \State $s_b\gets\sigma(\boldsymbol{\theta}^{T}\boldsymbol{\psi}_b+c)$
+\EndFor
+\State $\mathcal{A}\gets\operatorname{TopK}_{b\in\mathcal{B}}(s_b,K)$
+\Repeat
+    \State $z_{i,b}\gets0$, $\forall i,b$
+    \For{$i\in\mathcal{U}$}
+        \State $\mathcal{C}_i\gets
+        \{b\in\mathcal{A}:R_{i,b}(\mathcal{A})\geq R_{\min},
+        P_{\mathrm{tx}}g_{i,b}\geq\Gamma_{\mathrm{rsrp}}\}$
+        \If{$\mathcal{C}_i=\varnothing$}
+            \State $\mathcal{C}_i\gets\mathcal{A}$
+        \EndIf
+        \State $b_i\gets\arg\max_{b\in\mathcal{C}_i}P_{i,b}$
+        \State $z_{i,b_i}\gets1$
+    \EndFor
+    \State $\rho_b\gets\sum_{i\in\mathcal{U}}z_{i,b}d_i/R_{i,b}(\mathcal{A})$
+    \State $\mathcal{V}\gets\{i:R_{i,b_i}<R_{\min}\ \text{or}\
+    P_{\mathrm{tx}}g_{i,b_i}<\Gamma_{\mathrm{rsrp}}\ \text{or}\
+    \rho_{b_i}>\rho_{\max}\}$
+    \If{$\mathcal{V}=\varnothing$ or $|\mathcal{A}|=B$}
+        \State \textbf{break}
+    \EndIf
+    \State $b^{+}\gets
+    \arg\max_{b\in\mathcal{B}\setminus\mathcal{A}}
+    \sum_{i\in\mathcal{V}}d_i g_{i,b}$
+    \State $\mathcal{A}\gets\mathcal{A}\cup\{b^{+}\}$
+\Until{$\mathcal{V}=\varnothing$ or $|\mathcal{A}|=B$}
+\State $\widehat{a}_b\gets\mathbf{1}\{b\in\mathcal{A}\}$, $\forall b$
+\State $\widehat{z}_{i,b}\gets z_{i,b}$, $\forall i,b$
+\State \Return $\widehat{\mathbf{Z}}$, $\widehat{\mathbf{a}}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Mathematical Properties}
+Let $\mathfrak{M}=(\mathbf{X},\{\mathbf{S}^{(\ell)}\}_{\ell\in\mathcal{L}})$
+denote the multilayer input and define the layer-aware encoder
+$F_{\Theta}$ by \eqref{eq:layer_gcn}--\eqref{eq:att_fusion}. For a permutation
+matrix $\boldsymbol{\Pi}$, define the action
+\begin{equation}
+    T_{\boldsymbol{\Pi}}(\mathfrak{M}) =
+    \left(\boldsymbol{\Pi}\mathbf{X},
+    \{\boldsymbol{\Pi}\mathbf{S}^{(\ell)}
+    \boldsymbol{\Pi}^{T}\}_{\ell\in\mathcal{L}}\right).
+\end{equation}
+Define also the feasibility predicate
+\begin{equation}
+\begin{split}
+    \Phi(\mathbf{Z},\mathbf{a})=1
+    \Longleftrightarrow\;&
+    \eqref{eq:association_constraint},\eqref{eq:active_constraint},
+    \eqref{eq:rsrp},\eqref{eq:qos},\eqref{eq:load_constraint}\\
+    &\text{hold for }(\mathbf{Z},\mathbf{a}).
+\end{split}
+\end{equation}
+
+\begin{theorem}[Equivariance of the multilayer encoder]
+For any permutation matrix $\boldsymbol{\Pi}$,
+\begin{equation}
+    F_{\Theta}\left(T_{\boldsymbol{\Pi}}(\mathfrak{M})\right)
+    =\boldsymbol{\Pi}F_{\Theta}(\mathfrak{M}).
+    \label{eq:equivariance_result}
+\end{equation}
+\end{theorem}
+\begin{proof}
+Let $\mathbf{H}^{(\ell)}$ and $\widetilde{\mathbf{H}}^{(\ell)}$ be the
+layer-$\ell$ hidden matrices generated from $\mathfrak{M}$ and
+$T_{\boldsymbol{\Pi}}(\mathfrak{M})$, respectively. Then
+\begin{equation}
+\begin{split}
+\widetilde{\mathbf{H}}^{(\ell)}
+&=\phi\left(\boldsymbol{\Pi}\mathbf{S}^{(\ell)}
+\boldsymbol{\Pi}^{T}\boldsymbol{\Pi}\mathbf{X}\mathbf{W}^{(\ell)}\right)\\
+&=\phi\left(\boldsymbol{\Pi}\mathbf{S}^{(\ell)}
+\mathbf{X}\mathbf{W}^{(\ell)}\right)
+=\boldsymbol{\Pi}\phi\left(\mathbf{S}^{(\ell)}
+\mathbf{X}\mathbf{W}^{(\ell)}\right)\\
+&=\boldsymbol{\Pi}\mathbf{H}^{(\ell)}.
+\end{split}
+\end{equation}
+Since concatenation and multiplication by scalar $\alpha_{\ell}$ act on feature
+coordinates and not on UE indices,
+\begin{equation}
+\Vert_{\ell\in\mathcal{L}}\alpha_{\ell}
+\widetilde{\mathbf{H}}^{(\ell)}
+=\boldsymbol{\Pi}\left(
+\Vert_{\ell\in\mathcal{L}}\alpha_{\ell}\mathbf{H}^{(\ell)}\right).
+\end{equation}
+This proves \eqref{eq:equivariance_result}.
+\end{proof}
+
+\begin{theorem}[Non-injectivity of uniform layer aggregation]
+Let
+\begin{equation}
+    C(\mathfrak{M})
+    =\left(\mathbf{X},
+    \bar{\mathbf{S}}\right),\qquad
+    \bar{\mathbf{S}}=\frac{1}{|\mathcal{L}|}
+    \sum_{\ell\in\mathcal{L}}\mathbf{S}^{(\ell)},
+\end{equation}
+be the uniform layer aggregation map. If $|\mathcal{L}|\geq2$, then $C$ is not
+injective. Hence any predictor $H(C(\mathfrak{M}))$ cannot distinguish all
+multilayer inputs.
+\end{theorem}
+\begin{proof}
+It is sufficient to construct two distinct inputs with the same image under
+$C$. Consider two layers $p$ and $q$, and let $\mathbf{A}\neq\mathbf{B}$.
+Define
+\begin{equation}
+\begin{array}{ll}
+\mathfrak{M}_1:\quad
+\mathbf{S}^{(p)}=\mathbf{A},\quad
+\mathbf{S}^{(q)}=\mathbf{B},\\[2mm]
+\mathfrak{M}_2:\quad
+\mathbf{S}^{(p)}=\mathbf{B},\quad
+\mathbf{S}^{(q)}=\mathbf{A},
+\end{array}
+\end{equation}
+with all remaining layers and $\mathbf{X}$ identical. Then
+\begin{equation}
+    C(\mathfrak{M}_1)
+    =C(\mathfrak{M}_2),
+    \qquad
+    \mathfrak{M}_1\neq\mathfrak{M}_2.
+\end{equation}
+Thus $C$ is non-injective. Consequently, every predictor
+that factors through $C$ assigns the same output to
+$\mathfrak{M}_1$ and $\mathfrak{M}_2$. In contrast, the layer-aware encoder
+contains the ordered terms
+$\phi(\mathbf{S}^{(p)}\mathbf{X}\mathbf{W}^{(p)})$ and
+$\phi(\mathbf{S}^{(q)}\mathbf{X}\mathbf{W}^{(q)})$; for
+$\mathbf{W}^{(p)}\neq\mathbf{W}^{(q)}$, the two constructed inputs need not
+have identical embeddings.
+\end{proof}
+
+\begin{lemma}[Attention normalization]
+Let $\boldsymbol{\alpha}$ be defined by \eqref{eq:attention_weight}. Then
+\begin{equation}
+    \boldsymbol{\alpha}\in\Delta^{|\mathcal{L}|-1}
+    =\{\mathbf{u}\in\mathbb{R}_{+}^{|\mathcal{L}|}:
+    \sum_{\ell\in\mathcal{L}}u_{\ell}=1\}.
+\end{equation}
+\end{lemma}
+\begin{proof}
+For all $\ell$, $\exp(\eta_{\ell})>0$; therefore $\alpha_{\ell}\geq0$.
+Moreover,
+\begin{equation}
+    \sum_{\ell\in\mathcal{L}}\alpha_{\ell}
+    =
+    \frac{\sum_{\ell\in\mathcal{L}}\exp(\eta_{\ell})}
+    {\sum_{r\in\mathcal{L}}\exp(\eta_r)}
+    =1.
+\end{equation}
+\end{proof}
+
+\noindent The layer-attention concentration reported in the experiments is
+measured by
+\begin{equation}
+    H_{\alpha}=-\sum_{\ell\in\mathcal{L}}\alpha_{\ell}\log\alpha_{\ell}.
+    \label{eq:attention_entropy}
+\end{equation}
+
+\begin{theorem}[Finite monotone repair]
+Let $\mathcal{A}^{(0)}$ be the active set initialized by
+\eqref{eq:topk}. Algorithm~\ref{alg:method} generates a sequence
+$\{\mathcal{A}^{(m)}\}_{m\geq0}$ satisfying
+\begin{equation}
+    \mathcal{A}^{(0)}\subseteq\mathcal{A}^{(1)}
+    \subseteq\cdots\subseteq\mathcal{B}.
+    \label{eq:monotone_active}
+\end{equation}
+Moreover, the number of strict expansions is at most $B-|\mathcal{A}^{(0)}|$,
+and if the algorithm returns at iteration $m$ with
+$\Phi(\widehat{\mathbf{Z}},\widehat{\mathbf{a}})=1$, then
+$(\widehat{\mathbf{Z}},\widehat{\mathbf{a}})$ is feasible for
+\eqref{eq:objective}.
+\end{theorem}
+\begin{proof}
+At any infeasible iteration, the update has the form
+\begin{equation}
+    \mathcal{A}^{(m+1)}
+    =
+    \mathcal{A}^{(m)}\cup\{b^{+}_m\},\qquad
+    b^{+}_m\in\mathcal{B}\setminus\mathcal{A}^{(m)}.
+\end{equation}
+Therefore \eqref{eq:monotone_active} holds and each strict expansion increases
+$|\mathcal{A}^{(m)}|$ by one. Since $|\mathcal{B}|=B$, at most
+$B-|\mathcal{A}^{(0)}|$ strict expansions are possible. If the algorithm exits
+with $\Phi(\widehat{\mathbf{Z}},\widehat{\mathbf{a}})=1$, then the association,
+activation, RSRP, rate, and load constraints hold by the definition of
+$\Phi$.
+\end{proof}
+
+\begin{corollary}[Oracle bound]
+Let $\mathcal{C}$ be the finite candidate set searched by the oracle and let
+$J(\mathbf{Z},\mathbf{a})=P_{\mathrm{net}}(\mathbf{Z},\mathbf{a})$. If
+\begin{equation}
+    (\mathbf{Z}^{\star},\mathbf{a}^{\star})
+    \in\arg\min_{(\mathbf{Z},\mathbf{a})\in\mathcal{C},\ \Phi(\mathbf{Z},\mathbf{a})=1}
+    J(\mathbf{Z},\mathbf{a}),
+\end{equation}
+then for every feasible
+$(\mathbf{Z},\mathbf{a})\in\mathcal{C}$,
+\begin{equation}
+    J(\mathbf{Z}^{\star},\mathbf{a}^{\star})
+    \leq J(\mathbf{Z},\mathbf{a}).
+\end{equation}
+\end{corollary}
+\begin{proof}
+The inequality is the defining property of the minimum over the feasible subset
+of $\mathcal{C}$.
+\end{proof}
+
+\section{Experimental Design}
+\subsection{Simulation Scenario}
+The experimental study uses simulated dense downlink cellular snapshots so that
+the true channel, traffic, association, load, and energy quantities are
+available for controlled comparison. Each snapshot contains $B$ BSs deployed in
+a circular service region and $N$ UEs drawn uniformly over the same region. One
+BS is placed at the center and the remaining BSs are placed on a ring, producing
+a dense small-cell layout with overlapping coverage. UE traffic demands vary
+across space and time: each snapshot is assigned a traffic period
+$t\in\{0,\ldots,T-1\}$, and the demand distribution combines lognormal user
+variation, a periodic traffic factor, and a spatial hotspot.
+
+The downlink channel gain $g_{i,b}$ includes distance-dependent path loss,
+lognormal shadowing, and small-scale fading. Unless otherwise stated, all BSs
+transmit with the same power and share the same bandwidth. The all-on network
+is used only as a reference operating point; learned and heuristic policies are
+allowed to switch off BSs through the active-BS vector $\mathbf{a}$ defined in
+Section III. Fig.~\ref{fig:simulation_scenario} illustrates the simulated
+deployment and the information flow from snapshot inputs to radio-channel
+generation, multilayer graph construction, and control evaluation.
+Table~\ref{tab:sim_params} lists the baseline simulation configuration used
+for the initial comparative study.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/fig_simulation_scenario.png}
+    \caption{Simulation scenario used for dense wireless user association and
+    BS switch-off. Each snapshot contains a circular service region, center and
+    ring BS deployment, randomly sampled UEs with time-varying traffic demand,
+    channel gains generated from path loss, shadowing, and fading, and a
+    control decision consisting of active/sleep BS states and UE-to-BS
+    association.}
+    \label{fig:simulation_scenario}
+\end{figure*}
+
+\begin{table}[!t]
+\caption{Baseline Simulation and Training Configuration}
+\label{tab:sim_params}
+\centering
+\begin{tabular}{ll}
+\toprule
+Parameter & Value \\
+\midrule
+Number of BSs, $B$ & 7 \\
+Number of UEs, $N$ & 50 \\
+Service-region radius & 650 m \\
+Carrier frequency & 3.5 GHz \\
+Bandwidth & 20 MHz \\
+BS transmit power & 20 W \\
+Noise power & $-94$ dBm \\
+Path-loss exponent & 3.2 \\
+Shadowing standard deviation & 6 dB \\
+Minimum RSRP threshold & $-115$ dBm \\
+Minimum rate, $R_{\min}$ & 1 Mbps \\
+Traffic demand range & 0.5--6 Mbps \\
+Load limit, $\rho_{\max}$ & 1.0 \\
+BS fixed/dynamic/sleep power & 90 W / 55 W / 8 W \\
+Traffic periods, $T$ & 24 \\
+Training/test snapshots per seed & 60 / 20 \\
+Random seeds & 17, 23, 31 \\
+Hidden dimension & 24 \\
+Training epochs / patience & 80 / 20 \\
+Learning rate & 0.018 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Reference Decisions}
+Each training snapshot is labeled by a finite-search reference policy. The
+reference policy enumerates candidate active-BS subsets
+$\mathcal{A}\subseteq\mathcal{B}$ and assigns UEs greedily within each subset
+using channel quality, demand, and projected load. For each candidate, it
+computes an energy-penalized score
+\begin{align}
+    Q(\mathbf{Z},\mathbf{a})
+    =&\ P_{\mathrm{net}}(\mathbf{Z},\mathbf{a})
+    +\lambda_s\left(1-\mathrm{SR}(\mathbf{Z},\mathbf{a})\right) \nonumber\\
+    &+\lambda_{\rho}
+    \left[\max_b \rho_b(\mathbf{Z},\mathbf{a})-\rho_{\max}\right]_+,
+    \label{eq:reference_score}
+\end{align}
+where $[x]_+=\max(x,0)$ and $\mathrm{SR}$ is the served ratio. The reference
+decision is the lowest-score feasible candidate in the searched set. This
+reference is not used as a claimed globally optimal solution of
+\eqref{eq:objective}; it is used as a strong finite benchmark for supervised
+training and for measuring the energy gap of learned policies.
+
+\subsection{Compared Policies}
+The comparative study evaluates three groups of policies.
+
+First, conventional association heuristics are included as non-learning
+baselines. The RSRP policy assigns each UE to the BS with maximum received
+power. The SINR policy assigns each UE to the BS with maximum all-on SINR. The
+load-aware policy sequentially assigns high-demand UEs to BSs that minimize
+projected load while maintaining radio feasibility when possible. These
+heuristics are repaired before evaluation using the same QoS/load guard applied
+to learned policies, so the comparison measures the quality of the association
+preference rather than failure of a postprocessing step.
+
+Second, single-representation learning baselines are trained on the same
+reference labels. The flat MLP receives UE features only and does not use graph
+propagation. The aggregated GCN uses the average support
+\begin{equation}
+    \bar{\mathbf{S}}=\frac{1}{|\mathcal{L}|}
+    \sum_{\ell\in\mathcal{L}}\mathbf{S}^{(\ell)}
+\end{equation}
+and therefore receives a single graph representation. These two baselines
+separate the value of graph propagation from the value of preserving separate
+relation layers.
+
+Third, the proposed multilayer models are evaluated. The fixed-fusion ML-GCN
+uses \eqref{eq:layer_gcn}--\eqref{eq:fixed_fusion}, while the attention ML-GCN
+uses \eqref{eq:attention_weight}--\eqref{eq:att_fusion}. Both models are
+combined with the active-BS selector and the QoS/load repair procedure in
+Algorithm~\ref{alg:method}. A finite-search reference policy is reported as an
+upper-bound benchmark within the searched candidate class.
+
+\subsection{Training Protocol}
+All learning models are trained by minimizing the association loss in
+\eqref{eq:ua_loss} over the training snapshots. Node features are standardized
+using the training set statistics and the same transformation is applied to the
+test snapshots. The active-BS selector is trained after the association model by
+using the model probability outputs and the reference active sets. The number
+of selected active BSs is initialized from the rounded mean active-BS count of
+the reference decisions in the training set.
+
+For each test snapshot, a learned model first outputs UE-to-BS probabilities,
+then active-BS scores, then an initial association over the selected active set.
+Algorithm~\ref{alg:method} finally checks RSRP, rate, and load constraints and
+activates additional BSs only when the selected set cannot support the
+snapshot. All reported metrics are computed after this final repaired decision.
+
+\subsection{Evaluation Metrics}
+The primary metric is network energy. Let
+$P_{\mathrm{all}}$ denote the energy consumed when all BSs are active under the
+same power model. The energy saving of a policy $\pi$ is
+\begin{equation}
+    \mathrm{ES}_{\pi}
+    =
+    \frac{P_{\mathrm{all}}-P_{\pi}}{P_{\mathrm{all}}},
+    \label{eq:energy_saving_metric}
+\end{equation}
+where $P_{\pi}=P_{\mathrm{net}}(\mathbf{Z}_{\pi},\mathbf{a}_{\pi})$. The
+energy gap relative to the reference policy is
+\begin{equation}
+    \mathrm{Gap}_{\pi}
+    =
+    \frac{P_{\pi}-P_{\mathrm{ref}}}{P_{\mathrm{ref}}},
+    \label{eq:oracle_gap_metric}
+\end{equation}
+where $P_{\mathrm{ref}}$ is the reference energy for the same snapshot.
+
+Constraint satisfaction is measured by served ratio,
+\begin{align}
+    \mathrm{SR}_{\pi}
+    =&\ \frac{1}{N}\sum_{i=1}^{N}
+    \mathbf{1}\Big\{
+    P_{\mathrm{tx}}g_{i,b_i}\geq\Gamma_{\mathrm{rsrp}},
+    \nonumber\\
+    &\qquad\qquad
+    R_{i,b_i}\geq R_{\min},
+    \ \rho_{b_i}\leq\rho_{\max}
+    \Big\}.
+    \label{eq:served_ratio_metric}
+\end{align}
+Operational compactness and load behavior are reported using active-BS count
+\begin{equation}
+    A_{\pi}=\sum_{b\in\mathcal{B}}a_{\pi,b},
+\end{equation}
+maximum load
+\begin{equation}
+    \rho_{\max}^{\pi}=\max_{b\in\mathcal{B}}\rho_b,
+\end{equation}
+and mean active load
+\begin{equation}
+    \bar{\rho}_{\mathrm{on}}^{\pi}
+    =
+    \frac{\sum_{b\in\mathcal{B}}a_{\pi,b}\rho_b}
+    {\sum_{b\in\mathcal{B}}a_{\pi,b}}.
+\end{equation}
+Assignment accuracy against reference labels is reported only as a diagnostic,
+because a policy can have low label agreement while still producing a feasible
+low-energy association.
+
+\subsection{Layer Ablation and Stress Tests}
+To evaluate the role of each relation layer, the experiments include
+single-layer and leave-one-layer-out variants of the ML-GCN. For a layer
+$\ell$, the leave-one-layer-out energy effect is
+\begin{equation}
+    \Delta_{\ell}^{(-)}
+    =
+    \mathrm{ES}_{\mathrm{full}}
+    -
+    \mathrm{ES}_{-\ell},
+    \label{eq:leave_one_out_metric}
+\end{equation}
+and the single-layer contribution is
+\begin{equation}
+    \Delta_{\ell}^{(+)}
+    =
+    \mathrm{ES}_{\ell}
+    -
+    \mathrm{ES}_{\mathrm{flat}}.
+    \label{eq:single_layer_metric}
+\end{equation}
+Positive $\Delta_{\ell}^{(-)}$ indicates that removing layer $\ell$ reduces
+energy saving, while positive $\Delta_{\ell}^{(+)}$ indicates that layer
+$\ell$ alone improves over a feature-only model.
+
+Pairwise layer redundancy is measured before training using support-matrix
+dissimilarity,
+\begin{equation}
+    D_{\ell,r}
+    =
+    \frac{\|\mathbf{S}^{(\ell)}-\mathbf{S}^{(r)}\|_F}
+    {\|\mathbf{S}^{(\ell)}\|_F+\epsilon},
+    \qquad \ell\neq r,
+    \label{eq:layer_dissimilarity}
+\end{equation}
+where $\epsilon>0$ avoids division by zero. Attention concentration is measured
+using \eqref{eq:attention_entropy}. In addition to the baseline setting in
+Table~\ref{tab:sim_params}, stress tests vary traffic intensity, UE density,
+BS density, and shadowing variance. These sweeps test whether energy savings
+remain meaningful when load and channel uncertainty change.
+
+\section{Results and Discussion}
+\subsection{Overall Comparative Performance}
+Table~\ref{tab:main_results} and Fig.~\ref{fig:results_main} summarize the
+main multi-seed comparison. The finite-search reference achieves the lowest
+energy, with a mean energy saving of $63.2\%$ relative to the all-on network
+and an average of 2.52 active BSs. The proposed ML-GCN is the strongest learned
+controller in the baseline setting: it obtains $55.2\%$ energy saving, keeps
+the served ratio at 1.0, and uses 3.18 active BSs on average. Its mean energy
+gap relative to the finite-search reference is $23.2\%$.
+
+The attention-weighted ML-GCN obtains a very similar result, with $54.7\%$
+energy saving and 3.23 active BSs. The aggregated GCN and flat MLP also learn
+cell switch-off behavior, but they remain slightly behind the layer-aware
+ML-GCN in energy and active-BS compactness. In contrast, the conventional RSRP,
+SINR, and load-aware policies keep all BSs active after repair and therefore
+save only about $17$--$18\%$ energy. Their served ratio is close to one, but the
+energy gap exceeds $129\%$ relative to the reference, indicating that local
+association rules alone do not identify compact active-cell configurations.
+
+\begin{table*}[!t]
+\caption{Main Multi-Seed Performance Summary}
+\label{tab:main_results}
+\centering
+\begin{tabular}{lccccc}
+\toprule
+Policy & Energy saving & Reference gap & Served ratio & Active BSs & Max load \\
+\midrule
+Reference & $0.632\pm0.013$ & $0.000$ & $1.000$ & $2.52$ & $0.831$ \\
+ML-GCN & $0.552\pm0.022$ & $0.232$ & $1.000$ & $3.18$ & $0.827$ \\
+Attn-ML-GCN & $0.547\pm0.025$ & $0.242$ & $1.000$ & $3.23$ & $0.821$ \\
+Aggregated GCN & $0.541\pm0.010$ & $0.259$ & $1.000$ & $3.30$ & $0.819$ \\
+Flat MLP & $0.541\pm0.019$ & $0.259$ & $1.000$ & $3.27$ & $0.832$ \\
+Load-aware & $0.171\pm0.006$ & $1.321$ & $0.995$ & $7.00$ & $0.650$ \\
+RSRP/SINR & $0.180\pm0.003$ & $1.298$ & $0.995$ & $7.00$ & $0.652$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_main_comparison.png}
+    \caption{Main comparative performance across three random seeds. Learned
+    policies substantially reduce active BS count and energy consumption while
+    preserving served ratio. The proposed ML-GCN gives the lowest mean energy
+    among learned policies and the smallest reference gap.}
+    \label{fig:results_main}
+\end{figure*}
+
+\subsection{Representative Snapshot Behavior}
+Fig.~\ref{fig:results_snapshot} shows one representative test snapshot. The
+left panel gives the all-on SINR matrix, sorted by the reference association.
+The center and right panels compare the reference association and the ML-GCN
+association on the same UE/BS geometry. Both decisions preserve full service,
+but the learned policy uses one additional active BS in this snapshot. This is
+consistent with the aggregate results: the learned controller approaches the
+reference switch-off behavior but remains more conservative in order to satisfy
+QoS and load constraints after repair.
+
+The snapshot also illustrates why assignment accuracy is not sufficient as a
+primary metric. A UE can be moved from one feasible BS to another and still
+produce a valid low-energy decision. Therefore, the correct evaluation target
+is not exact label reproduction; it is constrained network control measured by
+energy, active BS count, load, and served ratio.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_representative_snapshot.png}
+    \caption{Representative test snapshot. The heatmap shows all-on SINR over
+    UE-BS pairs; the association maps show the finite-search reference and the
+    ML-GCN decision after QoS/load repair. The learned policy maintains full
+    service while selecting a compact active-BS set.}
+    \label{fig:results_snapshot}
+\end{figure*}
+
+\subsection{Bandwidth and QoS Sensitivity}
+Fig.~\ref{fig:results_bandwidth_qos} evaluates bandwidth and QoS sensitivity.
+At 10 MHz, the network is highly resource constrained; all methods show low
+served ratio and energy saving is limited because most BSs must remain active.
+As bandwidth increases, the reference and learned policies exploit the
+additional capacity by switching off more BSs. At 20 MHz, ML-GCN reaches
+$51.5\%$ energy saving with full served ratio, while RSRP and load-aware
+association remain near $17\%$ because they do not actively compact the BS set.
+At 80 MHz, the learned controllers exceed $80\%$ energy saving and approach the
+reference trend.
+
+The QoS sweep is comparatively flat under the tested range
+$R_{\min}\in[0.5,2]$ Mbps. This indicates that, in the baseline traffic and
+bandwidth setting, the dominant limiting factor is not the minimum-rate
+threshold itself but the load and active-cell structure created by the
+association policy. This observation is useful for the final experimental
+design: more aggressive QoS stress should be combined with higher demand or
+lower bandwidth if rate feasibility is to become the dominant bottleneck.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_bandwidth_qos.png}
+    \caption{Bandwidth and QoS sensitivity. Increasing bandwidth creates
+    additional opportunity for BS switch-off, while the tested QoS range is not
+    the dominant limiting factor under the baseline traffic load.}
+    \label{fig:results_bandwidth_qos}
+\end{figure*}
+
+To complement the one-dimensional sweeps, Fig.~\ref{fig:results_surface}
+reports a joint QoS-density stress surface for ML-GCN under three shadowing
+levels. The surface confirms that UE density is the dominant stressor in the
+tested regime: energy saving remains high when the network has 30--50 UEs, but
+decreases sharply as the UE count grows to 70--90. Changes in the QoS threshold
+produce a smaller effect than density, which is consistent with the earlier QoS
+sweep. This behavior indicates that the learned controller is mainly limited by
+load concentration and active-cell capacity under dense traffic, rather than by
+the minimum-rate threshold alone.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/results/fig_results_surface_energy.png}
+    \caption{Joint QoS-density surface for the proposed ML-GCN. Each surface
+    reports mean energy saving after QoS/load repair for a different shadowing
+    standard deviation. The figure shows that UE density has a stronger impact
+    on energy saving than the tested QoS-threshold variation.}
+    \label{fig:results_surface}
+\end{figure*}
+
+\subsection{Scalability and Channel Robustness}
+Fig.~\ref{fig:results_scalability} studies UE-density and shadowing sweeps. As
+the number of UEs increases from 30 to 90, all policies experience reduced
+energy saving because additional traffic requires more active BSs. The
+reference decreases from $73.8\%$ to $39.2\%$ energy saving, while ML-GCN
+decreases from $70.5\%$ to $20.6\%$. The gap widens in the dense-load regime,
+which suggests that the current learned active-BS selector is conservative when
+many UEs compete for limited resources. Nevertheless, ML-GCN remains clearly
+above RSRP and load-aware association across the density sweep.
+
+The shadowing sweep shows that the learned policies are stable under channel
+uncertainty in the tested range. ML-GCN maintains full served ratio and
+approximately $51$--$55\%$ energy saving as the shadowing standard deviation
+varies from 2 to 14 dB. The reference energy saving also remains close to
+$62$--$63\%$. This robustness is expected because the multilayer representation
+uses multiple relational views: channel-profile similarity, association
+competition, demand/load structure, and temporal similarity. If one view becomes
+noisier, the remaining layers still provide useful structure for active-cell
+selection and association repair.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_scalability_robustness.png}
+    \caption{Scalability and channel-robustness sweeps. Higher UE density
+    reduces energy-saving opportunity and increases active BS count. Under the
+    tested shadowing levels, the learned policies preserve service feasibility
+    and remain substantially more energy-efficient than conventional
+    association rules.}
+    \label{fig:results_scalability}
+\end{figure*}
+
+\subsection{Layer Ablation}
+Fig.~\ref{fig:results_ablation} reports layer ablation. Removing the load layer
+has the largest leave-one-layer-out penalty: the energy saving decreases from
+$55.4\%$ to $53.2\%$, and the active-BS count increases from 3.2 to 3.4. This
+confirms that demand/load structure is important for deciding which BSs can
+remain active without overload. Removing the association, interference, or
+temporal layer also reduces energy saving, although with smaller penalties.
+
+The single-layer comparison gives a complementary view. The interference layer
+alone gives the strongest single-layer improvement over the feature-only
+baseline, while association, load, and temporal layers are individually weaker
+but jointly useful. Taken together, these two ablation views support the central
+modeling claim: no single layer fully explains the energy-aware association
+decision. The multilayer model benefits from preserving heterogeneous
+dependencies before fusion.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_layer_ablation.png}
+    \caption{Layer ablation analysis. The load layer has the largest
+    leave-one-layer-out effect, while the interference layer gives the strongest
+    single-layer gain over the feature-only baseline.}
+    \label{fig:results_ablation}
+\end{figure*}
+
+\subsection{Attention and Relation Dissimilarity}
+Fig.~\ref{fig:results_attention} shows the learned attention distribution and
+pairwise support-matrix dissimilarity. The attention model assigns comparable
+weights to the four layers, with a mild preference for interference and load.
+This explains why attention and fixed fusion perform similarly in the main
+comparison: the current global attention mechanism does not strongly suppress
+any layer. A more expressive snapshot-dependent attention mechanism may
+differentiate layers more sharply under heterogeneous traffic regimes.
+
+The dissimilarity heatmap shows that the temporal layer is the most distinct
+from the association layer, while association and interference have moderate
+overlap. The nonzero off-diagonal dissimilarities support the use of separate
+relation layers rather than a single aggregated support. Even when attention
+weights are nearly uniform, the layer-specific filters still process different
+support matrices before fusion.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/results/fig_results_attention_redundancy.png}
+    \caption{Layer attention and relation dissimilarity. Attention weights are
+    nearly balanced across relation layers, while the support matrices remain
+    structurally distinct.}
+    \label{fig:results_attention}
+\end{figure*}
+
+\subsection{Runtime and Complexity}
+Table~\ref{tab:runtime_complexity} reports a CPU timing benchmark and the
+corresponding online decision complexity. The benchmark uses the default network
+size, $N=80$ UEs and $B=7$ BSs, with 12 training snapshots and 5 test snapshots
+only for timing. The learned controllers are trained offline and then evaluated
+by measuring the median per-snapshot latency of probability prediction,
+active-BS selection, and QoS/load repair. Let $L$ denote the number of relation
+layers, $d$ the input feature dimension, $h$ the hidden dimension, and
+$|E_{\ell}|$ the number of nonzero edges in layer $\ell$.
+
+\begin{table*}[!t]
+\caption{Runtime and Online Complexity Benchmark}
+\label{tab:runtime_complexity}
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Policy & Offline fit (s) & Median decision latency (ms) & Online decision complexity \\
+\midrule
+RSRP & -- & 18.8 & $\mathcal{O}(NB)$ \\
+SINR & -- & 12.6 & $\mathcal{O}(NB)$ \\
+Load-aware & -- & 30.0 & $\mathcal{O}(NB+N\log N)$ \\
+Flat MLP & 0.26 & 22.9 & $\mathcal{O}(Ndh+Nh^2+NhB)$ \\
+Aggregated GCN & 0.30 & 26.1 & $\mathcal{O}(|E|d+Ndh+NhB)$ \\
+ML-GCN & 0.39 & 23.6 & $\mathcal{O}(\sum_{\ell=1}^{L}|E_{\ell}|d+LNdh+LNhB)$ \\
+Attn-ML-GCN & 0.38 & 26.9 & $\mathcal{O}(\sum_{\ell=1}^{L}|E_{\ell}|d+LNdh+LNhB)$ \\
+Reference search & -- & 837.5 & $\mathcal{O}(2^{B}NB)$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+The learned controllers add graph-processing cost relative to the simplest
+association rules, but their online latency remains in the same practical
+range for the default network size. The finite-search reference is much slower
+and scales exponentially with the number of BSs; it is therefore used as a
+bounded reference for evaluation rather than as an online controller. This
+runtime gap supports the role of ML-GCN as a deployable approximation of the
+reference policy: it preserves the feasibility-driven control structure while
+avoiding exhaustive active-cell enumeration at inference time.
+
+\subsection{Discussion}
+The results show three main findings. First, energy-aware user association is
+primarily an active-cell control problem, not only an assignment problem. RSRP,
+SINR, and load-aware association maintain high service quality but fail to
+produce compact active-BS sets, which leaves large energy savings unused.
+Second, supervised graph learning with feasibility repair can learn the
+switch-off behavior of the reference policy while preserving QoS and load
+constraints. Third, preserving layer-specific wireless relations provides a
+measurable advantage over graph aggregation, particularly in active-BS
+compactness and reference energy gap.
+
+The present attention model should be interpreted cautiously. Its global
+attention weights are useful for interpretability, but they do not yet produce
+a large performance separation from fixed fusion. This is not a weakness of the
+multilayer formulation; rather, it indicates that the current attention
+parameterization is conservative. Future experiments can use
+snapshot-dependent attention, stress-specific training, or explicit
+layer-diversity regularization to make the attention mechanism more adaptive.
+
+Finally, the finite-search reference is not a practical online controller for
+large networks because it evaluates many active-BS candidates. Its role is to
+provide a strong benchmark and supervised signal. The learned ML-GCN replaces
+this search with a fast feed-forward policy and a finite monotone repair step,
+thereby providing a scalable approximation to energy-aware association under
+explicit feasibility constraints.
+
+\section{Conclusion}
+This paper studied energy-aware user association in wireless access networks
+using a multilayer graph-learning formulation. The proposed framework models a
+network snapshot through heterogeneous UE-UE relation layers that encode
+association competition, interference similarity, load coupling, and temporal
+traffic structure. These layers are processed by an ML-GCN policy and followed
+by an explicit QoS/load repair step, so that the learned association decision
+is evaluated as a constrained network-control action rather than as a pure
+classification task.
+
+The simulation results show that layer-aware graph learning can substantially
+reduce network energy consumption while maintaining service feasibility. In the
+baseline setting, the fixed-fusion ML-GCN achieved $55.2\%$ mean energy saving
+relative to the all-on network, maintained a served ratio of 1.0, and used
+3.18 active BSs on average. The finite-search reference achieved $63.2\%$
+energy saving, whereas conventional RSRP, SINR, and load-aware policies saved
+only about $17$--$18\%$ because they did not explicitly compact the active-BS
+set. Sensitivity studies further showed that the proposed method remains
+effective across bandwidth, QoS-threshold, UE-density, and shadowing
+variations. The ablation analysis confirmed that all relation layers contribute
+to the learned control decision, with the load layer producing the largest
+leave-one-layer-out penalty and the interference layer providing the strongest
+single-layer gain. The runtime benchmark also showed that ML-GCN avoids the
+exponential active-BS enumeration cost of the reference search and provides a
+feed-forward decision mechanism with practical online latency for the simulated
+network size.
+
+The study has several limitations. First, the evaluation is based on a
+simulation environment with controlled propagation, traffic, and power-model
+assumptions; although these assumptions allow reproducible comparative
+analysis, they do not capture all operational effects of a deployed cellular
+network. Second, the finite-search reference is tractable only for the
+considered BS scale and is used as a bounded benchmark rather than a scalable
+optimal solver. Third, the current attention mechanism uses global layer
+weights, which limits its ability to adapt relation importance on a
+snapshot-by-snapshot basis. Finally, the repair step enforces feasibility after
+learning, but it is not yet jointly optimized with the ML-GCN objective.
+
+Future work will extend the framework in four directions. The first direction
+is validation under larger and more realistic network scenarios, including
+irregular BS deployments, mobility traces, nonuniform traffic hotspots, and
+multi-cell interference coordination. The second direction is the development
+of adaptive attention and layer-selection mechanisms that can change relation
+importance according to traffic load, channel uncertainty, and topology. The
+third direction is to integrate feasibility constraints more directly into the
+learning objective through constrained learning, differentiable repair, or
+safe reinforcement learning. The fourth direction is to evaluate transfer
+across network sizes and operating regimes, so that a model trained on one
+deployment can generalize to different densities, bandwidths, and service
+requirements. These extensions would move the proposed multilayer graph
+framework closer to practical energy-efficient control in future intelligent
+wireless networks.
+
+\section*{Data and Code Availability}
+The source code, simulation configurations, generated result files, MATLAB
+figure scripts, and manuscript assets used in this study are publicly available
+at \url{https://github.com/kazim01011/multilayer-ua-energy}. The repository
+contains the simulator, multilayer graph construction routines, learning
+models, baseline policies, reproducibility scripts, and aggregate CSV outputs
+used to generate the reported tables and figures.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\end{document}

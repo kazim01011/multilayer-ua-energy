@@ -1,0 +1,31 @@
+{
+  "run_name": "ablation_initial",
+  "train_graphs": 60,
+  "test_graphs": 20,
+  "epochs": 80,
+  "patience": 20,
+  "hidden_dim": 24,
+  "learning_rate": 0.018,
+  "seed": 17,
+  "models": [
+    "ml_gcn",
+    "attn_ml_gcn",
+    "ml_gcn_association",
+    "ml_gcn_interference",
+    "ml_gcn_load",
+    "ml_gcn_temporal",
+    "ml_gcn_no_association",
+    "ml_gcn_no_interference",
+    "ml_gcn_no_load",
+    "ml_gcn_no_temporal"
+  ],
+  "sim": {
+    "num_bs": 7,
+    "num_ues": 50,
+    "area_radius_m": 650.0,
+    "bandwidth_hz": 20000000.0,
+    "qos_mbps": 1.0,
+    "seed": 17
+  }
+}
+

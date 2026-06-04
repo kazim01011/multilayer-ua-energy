@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="520" viewBox="0 0 920 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="90" y="24" font-family="Arial" font-size="18" font-weight="bold">Mean energy saving vs all-on</text>
+<line x1="90" y1="390" x2="890" y2="390" stroke="#333"/>
+<line x1="90" y1="40" x2="90" y2="390" stroke="#333"/>
+<rect x="90.0" y="40.0" width="89.5" height="350.0" fill="#4267b2"/>
+<text x="134.8" y="34.0" text-anchor="middle" font-family="Arial" font-size="12">0.632</text>
+<text x="134.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 134.8,408)">oracle</text>
+<rect x="191.5" y="84.2" width="89.5" height="305.8" fill="#4267b2"/>
+<text x="236.2" y="78.2" text-anchor="middle" font-family="Arial" font-size="12">0.552</text>
+<text x="236.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 236.2,408)">ml_gcn</text>
+<rect x="293.0" y="86.9" width="89.5" height="303.1" fill="#4267b2"/>
+<text x="337.8" y="80.9" text-anchor="middle" font-family="Arial" font-size="12">0.547</text>
+<text x="337.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 337.8,408)">attn_ml_gcn</text>
+<rect x="394.5" y="90.4" width="89.5" height="299.6" fill="#4267b2"/>
+<text x="439.2" y="84.4" text-anchor="middle" font-family="Arial" font-size="12">0.541</text>
+<text x="439.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 439.2,408)">flat_mlp</text>
+<rect x="496.0" y="90.5" width="89.5" height="299.5" fill="#4267b2"/>
+<text x="540.8" y="84.5" text-anchor="middle" font-family="Arial" font-size="12">0.541</text>
+<text x="540.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 540.8,408)">agg_gcn</text>
+<rect x="597.5" y="290.3" width="89.5" height="99.7" fill="#4267b2"/>
+<text x="642.2" y="284.3" text-anchor="middle" font-family="Arial" font-size="12">0.180</text>
+<text x="642.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 642.2,408)">rsrp</text>
+<rect x="699.0" y="290.3" width="89.5" height="99.7" fill="#4267b2"/>
+<text x="743.8" y="284.3" text-anchor="middle" font-family="Arial" font-size="12">0.180</text>
+<text x="743.8" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 743.8,408)">sinr</text>
+<rect x="800.5" y="295.2" width="89.5" height="94.8" fill="#4267b2"/>
+<text x="845.2" y="289.2" text-anchor="middle" font-family="Arial" font-size="12">0.171</text>
+<text x="845.2" y="408" text-anchor="end" font-family="Arial" font-size="12" transform="rotate(-35 845.2,408)">load_aware</text>
+</svg>

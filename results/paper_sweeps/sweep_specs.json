@@ -1,0 +1,132 @@
+{
+  "specs": [
+    [
+      "bandwidth",
+      "bandwidth_mhz",
+      10.0,
+      {
+        "bandwidth_hz": 10000000.0
+      }
+    ],
+    [
+      "bandwidth",
+      "bandwidth_mhz",
+      20.0,
+      {
+        "bandwidth_hz": 20000000.0
+      }
+    ],
+    [
+      "bandwidth",
+      "bandwidth_mhz",
+      40.0,
+      {
+        "bandwidth_hz": 40000000.0
+      }
+    ],
+    [
+      "bandwidth",
+      "bandwidth_mhz",
+      80.0,
+      {
+        "bandwidth_hz": 80000000.0
+      }
+    ],
+    [
+      "qos",
+      "qos_mbps",
+      0.5,
+      {
+        "qos_mbps": 0.5
+      }
+    ],
+    [
+      "qos",
+      "qos_mbps",
+      1.0,
+      {
+        "qos_mbps": 1.0
+      }
+    ],
+    [
+      "qos",
+      "qos_mbps",
+      1.5,
+      {
+        "qos_mbps": 1.5
+      }
+    ],
+    [
+      "qos",
+      "qos_mbps",
+      2.0,
+      {
+        "qos_mbps": 2.0
+      }
+    ],
+    [
+      "density",
+      "num_ues",
+      30.0,
+      {
+        "num_ues": 30
+      }
+    ],
+    [
+      "density",
+      "num_ues",
+      50.0,
+      {
+        "num_ues": 50
+      }
+    ],
+    [
+      "density",
+      "num_ues",
+      70.0,
+      {
+        "num_ues": 70
+      }
+    ],
+    [
+      "density",
+      "num_ues",
+      90.0,
+      {
+        "num_ues": 90
+      }
+    ],
+    [
+      "shadowing",
+      "shadowing_db",
+      2.0,
+      {
+        "shadowing_db": 2
+      }
+    ],
+    [
+      "shadowing",
+      "shadowing_db",
+      6.0,
+      {
+        "shadowing_db": 6
+      }
+    ],
+    [
+      "shadowing",
+      "shadowing_db",
+      10.0,
+      {
+        "shadowing_db": 10
+      }
+    ],
+    [
+      "shadowing",
+      "shadowing_db",
+      14.0,
+      {
+        "shadowing_db": 14
+      }
+    ]
+  ]
+}

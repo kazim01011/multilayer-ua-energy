@@ -1,0 +1,19 @@
+{
+  "run_name": "default",
+  "train_graphs": 180,
+  "test_graphs": 60,
+  "epochs": 160,
+  "patience": 30,
+  "hidden_dim": 32,
+  "learning_rate": 0.015,
+  "seed": 7,
+  "sim": {
+    "num_bs": 7,
+    "num_ues": 80,
+    "area_radius_m": 650.0,
+    "bandwidth_hz": 20000000.0,
+    "qos_mbps": 1.0,
+    "seed": 7
+  }
+}
+

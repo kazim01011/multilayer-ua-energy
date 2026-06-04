@@ -1,0 +1,25 @@
+{
+  "run_name": "multiseed_initial",
+  "train_graphs": 60,
+  "test_graphs": 20,
+  "epochs": 80,
+  "patience": 20,
+  "hidden_dim": 24,
+  "learning_rate": 0.018,
+  "seed": 17,
+  "models": [
+    "flat_mlp",
+    "agg_gcn",
+    "ml_gcn",
+    "attn_ml_gcn"
+  ],
+  "sim": {
+    "num_bs": 7,
+    "num_ues": 50,
+    "area_radius_m": 650.0,
+    "bandwidth_hz": 20000000.0,
+    "qos_mbps": 1.0,
+    "seed": 17
+  }
+}
+

@@ -1,0 +1,5 @@
+policy,active_count_hint,mean_predicted_active_score,attention_association,attention_interference,attention_load,attention_temporal
+flat_mlp,4,0.514874636641636,,,,
+agg_gcn,4,0.5127223480654106,,,,
+ml_gcn,4,0.5173680913202339,,,,
+attn_ml_gcn,4,0.5172430801953145,0.23306274239695943,0.2605758088633613,0.2592050442206149,0.24715640451906437

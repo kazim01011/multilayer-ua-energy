@@ -1,0 +1,16 @@
+{
+  "run_name": "smoke",
+  "train_graphs": 18,
+  "test_graphs": 6,
+  "epochs": 35,
+  "patience": 10,
+  "hidden_dim": 16,
+  "learning_rate": 0.02,
+  "seed": 11,
+  "sim": {
+    "num_bs": 7,
+    "num_ues": 35,
+    "seed": 11
+  }
+}
+

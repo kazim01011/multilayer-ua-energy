@@ -1,0 +1,11 @@
+policy,active_count_hint,mean_predicted_active_score,attention_association,attention_interference,attention_load,attention_temporal
+ml_gcn,3,0.4621747505605423,,,,
+attn_ml_gcn,3,0.4618397348144239,0.2379133034239076,0.2583070691826274,0.2547302995021951,0.2490493278912698
+ml_gcn_association,3,0.4696093758063672,,,,
+ml_gcn_interference,3,0.4684260385328634,,,,
+ml_gcn_load,3,0.4709454617111266,,,,
+ml_gcn_temporal,3,0.4709003815259927,,,,
+ml_gcn_no_association,3,0.4666313909981656,,,,
+ml_gcn_no_interference,3,0.4685105835997949,,,,
+ml_gcn_no_load,3,0.4663239843326944,,,,
+ml_gcn_no_temporal,3,0.4660470037019371,,,,
