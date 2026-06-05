@@ -123,10 +123,20 @@ UE-level multilayer graph
 \end{equation}
 where $\mathcal{V}$ is the set of UEs, $\mathbf{X}$ contains UE radio and
 traffic features, and each layer $\mathbf{A}^{(\ell)}$ represents a distinct
-wireless relation. In the present study, the layer set $\mathcal{L}$ consists
-of association competition, interference similarity, load-pressure similarity,
-and temporal traffic similarity. A layer-aware GNN then learns separate graph
-filters over these relation layers before fusing the resulting embeddings for
+wireless relation. The layer set $\mathcal{L}$ is defined to preserve four
+operational dependencies that are relevant to energy-aware association:
+\begin{itemize}
+    \item the \emph{association layer}, which connects UEs that compete for
+    the same strongest or candidate BS;
+    \item the \emph{interference layer}, which links UEs with similar channel
+    profiles and interference exposure;
+    \item the \emph{load layer}, which captures demand similarity and
+    potential load-pressure coupling among UEs; and
+    \item the \emph{temporal layer}, which represents spatial-traffic
+    similarity under time-varying demand.
+\end{itemize}
+Fig.~\ref{fig:model_architecture} illustrates how these relation layers are
+constructed, processed by layer-specific graph filters, and fused before
 association and active-cell decisions. The final decision is evaluated by
 network energy, QoS satisfaction, BS activity, and load feasibility rather than
 by assignment accuracy alone.
@@ -449,7 +459,7 @@ layer-wise representation learning.
 
 \begin{figure*}[!t]
     \centering
-    \includegraphics[width=\textwidth]{figures/fig_multilayer_ua_model.png}
+    \includegraphics[width=\textwidth]{figures/fig_methodology_framework_enhanced.pdf}
     \caption{Proposed multilayer graph-learning framework for energy-aware
     user association and BS switch-off. Separate wireless relation layers are
     preserved during graph propagation and fused before association, active-BS
