@@ -71,17 +71,6 @@ The most important generated files are:
 - `overleaf/figures/results/*.png`
 - `matlab_figures/results/data/*.csv`
 
-## Manuscript
-
-The IEEE two-column manuscript source is in `overleaf/main.tex`. The compiled
-draft PDF is included as `overleaf/main.pdf`.
-
-If LaTeX is installed, compile from the `overleaf/` folder:
-
-```bash
-latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
-```
-
 ## MATLAB Figures
 
 Editable MATLAB figure scripts are stored under `matlab_figures/results/`.
