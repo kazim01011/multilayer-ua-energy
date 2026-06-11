@@ -24,6 +24,7 @@ class SimConfig:
     bs_fixed_power_w: float = 90.0
     bs_dynamic_power_w: float = 55.0
     bs_sleep_power_w: float = 8.0
+    bs_switching_cost_w: float = 35.0
     load_limit: float = 1.0
     temporal_periods: int = 24
     seed: int = 7
@@ -45,6 +46,14 @@ class ExperimentConfig:
         "ml_gcn",
         "attn_ml_gcn",
     )
-    baselines: tuple[str, ...] = ("rsrp", "sinr", "load_aware", "oracle")
+    baselines: tuple[str, ...] = (
+        "rsrp",
+        "sinr",
+        "load_aware",
+        "rsrp_sleep",
+        "sinr_sleep",
+        "load_sleep",
+        "greedy_sleep",
+        "oracle",
+    )
     sim: SimConfig = field(default_factory=SimConfig)
-

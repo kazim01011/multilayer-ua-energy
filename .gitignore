@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.Rhistory
 
 # Python/build artifacts
 build/
@@ -22,3 +23,12 @@ dist/
 # temporary local generated datasets unless explicitly promoted.
 data/generated/*
 !data/generated/.gitkeep
+
+# Internal visual review artifacts extracted from copyrighted papers.
+literature_scenario_figures/
+
+# Duplicate local PDF exports; the manuscript PDF lives under overleaf/.
+ML_GNN_EA_UA.pdf
+multilayer_ua_energy.pdf
+overleaf/main_u.pdf
+overleaf/main_u.bbl

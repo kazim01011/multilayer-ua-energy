@@ -54,10 +54,18 @@ def main() -> None:
     metric_cols = [
         "assignment_accuracy",
         "energy_w",
+        "switching_penalty_w",
+        "energy_w_with_switching",
         "energy_saving_vs_all_on",
+        "energy_saving_with_switching_vs_all_on",
         "energy_gap_vs_oracle",
+        "energy_gap_with_switching_vs_oracle_static",
+        "energy_gap_with_switching_vs_oracle",
         "served_ratio",
         "active_bs",
+        "switch_events",
+        "activation_events",
+        "deactivation_events",
         "max_load",
     ]
     mean = combined.groupby("policy")[metric_cols].mean().reset_index()
@@ -71,4 +79,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

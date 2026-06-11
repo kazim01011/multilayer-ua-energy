@@ -20,6 +20,25 @@
 \providecommand{\BIBdecl}{\relax}
 \BIBdecl
 
+\bibitem{ghazzai2017green}
+H.~Ghazzai, M.~J. Farooq, A.~Alsharoa, E.~Yaacoub, A.~Kadri, and M.-S. Alouini, ``Green networking in cellular {HetNets}: A unified radio resource management framework with base station {ON/OFF} switching,'' \emph{IEEE Transactions on Vehicular Technology}, vol.~66, no.~7, pp. 5879--5893, 2017.
+
+\bibitem{oh2013dynamic}
+E.~Oh, K.~Son, and B.~Krishnamachari, ``Dynamic base station switching-on/off strategies for green cellular networks,'' \emph{IEEE Transactions on Wireless Communications}, vol.~12, no.~5, pp. 2126--2136, 2013.
+
+\bibitem{feng2017onoff}
+M.~Feng, S.~Mao, and T.~Jiang, ``Base station {ON-OFF} switching in {5G} wireless networks: Approaches and challenges,'' \emph{IEEE Wireless Communications}, vol.~24, no.~4, pp. 46--54, 2017.
+
+\bibitem{oecd2025environmental}
+\BIBentryALTinterwordspacing
+{OECD}, ``The environmental sustainability of communication networks,'' OECD, Tech. Rep., 2025. [Online]. Available: \url{https://www.oecd.org/content/dam/oecd/en/publications/reports/2025/02/the-environmental-sustainability-of-communication-networks_66fe3a2a/d1cb2210-en.pdf}
+\BIBentrySTDinterwordspacing
+
+\bibitem{oran2025energy}
+\BIBentryALTinterwordspacing
+{O-RAN Alliance}, ``Potential energy savings features in {O-RAN},'' White Paper, O-RAN.WP.Potential Energy Savings Features-v01.00, 2025. [Online]. Available: \url{https://mediastorage.o-ran.org/white-papers/O-RAN.SuFG.Potential%20Energy%20Savings%20Features%20in%20O-RAN%20white%20paper%202025-01.pdf}
+\BIBentrySTDinterwordspacing
+
 \bibitem{eisen2020optimal}
 M.~Eisen and A.~Ribeiro, ``Optimal wireless resource allocation with random edge graph neural networks,'' \emph{IEEE Transactions on Signal Processing}, vol.~68, pp. 2977--2991, 2020.
 
