@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -202,6 +203,94 @@ def score_guided_stable_assignments(
     return assignments, active_sets
 
 
+def learned_candidate_search_assignments(
+    cfg: ExperimentConfig,
+    graphs: list[UAGraph],
+    probabilities: list[np.ndarray],
+    active_scores: list[np.ndarray],
+    stable: bool = False,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Evaluate a compact active-set pool generated from learned scores."""
+    assignments = []
+    active_sets = []
+    previous_active: np.ndarray | None = None
+
+    for graph, probs, scores in zip(graphs, probabilities, active_scores):
+        gain = graph.context["gain"]
+        demand = graph.context["demand_mbps"]
+        bs_count = cfg.sim.num_bs
+        score_order = [int(x) for x in np.argsort(-scores)]
+        prob_mass_order = [int(x) for x in np.argsort(-np.sum(probs, axis=0))]
+        top_choice_order = [
+            int(x)
+            for x in np.argsort(-np.bincount(np.argmax(probs, axis=1), minlength=bs_count))
+        ]
+        rank_pool = []
+        for source in (score_order, prob_mass_order, top_choice_order):
+            for bs in source:
+                if bs not in rank_pool:
+                    rank_pool.append(bs)
+        rank_pool = rank_pool[: min(bs_count, 6)]
+
+        candidate_sets: set[tuple[int, ...]] = set()
+        for order in (score_order, prob_mass_order, top_choice_order, rank_pool):
+            for k in range(1, bs_count + 1):
+                candidate_sets.add(tuple(sorted(order[:k])))
+        for k in range(1, min(bs_count, 4) + 1):
+            for combo in combinations(rank_pool, k):
+                candidate_sets.add(tuple(sorted(combo)))
+        if previous_active is not None:
+            prev_tuple = tuple(np.where(previous_active)[0].astype(int))
+            candidate_sets.add(prev_tuple)
+            for bs in rank_pool[:4]:
+                candidate_sets.add(tuple(sorted(set(prev_tuple) | {int(bs)})))
+            for bs in prev_tuple:
+                reduced = tuple(x for x in prev_tuple if x != bs)
+                if reduced:
+                    candidate_sets.add(tuple(sorted(reduced)))
+
+        best_labels: np.ndarray | None = None
+        best_active: tuple[int, ...] | None = None
+        best_objective = float("inf")
+
+        for active_tuple in candidate_sets:
+            active = np.asarray(active_tuple, dtype=int)
+            if active.size == 0:
+                continue
+            preferred = active[np.argmax(probs[:, active], axis=1)].astype(int)
+            labels = repair_assignment(cfg.sim, preferred, gain, demand, allowed_active=active)
+            metrics = evaluate_assignment(cfg.sim, labels, gain, demand)
+            feasible = (
+                metrics["served_ratio"] >= 0.999
+                and metrics["max_load"] <= cfg.sim.load_limit + 1e-9
+            )
+            if not feasible:
+                continue
+            active_mask = np.zeros(bs_count, dtype=bool)
+            active_mask[np.unique(labels)] = True
+            switch_cost = 0.0
+            if stable and previous_active is not None:
+                switch_cost = cfg.sim.bs_switching_cost_w * int(np.sum(np.logical_xor(active_mask, previous_active)))
+            objective = float(metrics["energy_w"] + switch_cost)
+            if objective < best_objective - 1e-9:
+                best_objective = objective
+                best_labels = labels
+                best_active = tuple(np.where(active_mask)[0].astype(int))
+
+        if best_labels is None or best_active is None:
+            fallback_assignments, fallback_sets = score_guided_pruned_assignments(cfg, [graph], [probs], [scores])
+            best_labels = fallback_assignments[0]
+            best_active = tuple(int(x) for x in fallback_sets[0])
+
+        active_mask = np.zeros(bs_count, dtype=bool)
+        active_mask[list(best_active)] = True
+        assignments.append(best_labels.astype(int))
+        active_sets.append(np.asarray(best_active, dtype=int))
+        previous_active = active_mask
+
+    return assignments, active_sets
+
+
 def active_mask_from_labels(labels: np.ndarray, num_bs: int) -> np.ndarray:
     active = np.zeros(num_bs, dtype=bool)
     active[np.unique(np.asarray(labels, dtype=int))] = True
@@ -337,6 +426,40 @@ def run_experiment(cfg: ExperimentConfig, output_dir: Path) -> pd.DataFrame:
                 f"{model_name}_stable",
                 stable_predictions,
                 active_sets=stable_active_sets,
+                repair=False,
+            )
+        )
+        search_predictions, search_active_sets = learned_candidate_search_assignments(
+            cfg,
+            test_graphs,
+            test_probs,
+            active_scores,
+            stable=False,
+        )
+        rows.extend(
+            evaluate_policy(
+                cfg,
+                test_graphs,
+                f"{model_name}_search",
+                search_predictions,
+                active_sets=search_active_sets,
+                repair=False,
+            )
+        )
+        stable_search_predictions, stable_search_active_sets = learned_candidate_search_assignments(
+            cfg,
+            test_graphs,
+            test_probs,
+            active_scores,
+            stable=True,
+        )
+        rows.extend(
+            evaluate_policy(
+                cfg,
+                test_graphs,
+                f"{model_name}_stable_search",
+                stable_search_predictions,
+                active_sets=stable_search_active_sets,
                 repair=False,
             )
         )
